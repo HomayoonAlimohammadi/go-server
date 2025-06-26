@@ -34,10 +34,11 @@ func main() {
 	signal.Notify(shutdownCh, syscall.SIGINT, syscall.SIGTERM)
 
 	srv := NewServer(dir, tcpL, shutdownCh)
-	srv.Register(http.MethodGet, "/files", srv.handleFiles)
-	srv.Register(http.MethodGet, "/user-agent", srv.handleUserAgent)
-	srv.Register(http.MethodGet, "/echo", srv.handleEcho)
-	srv.Register(http.MethodGet, "/", srv.handleRoot)
+	srv.Register(http.MethodGet, "/files", srv.filesGet)
+	srv.Register(http.MethodPost, "/files", srv.filesPost)
+	srv.Register(http.MethodGet, "/user-agent", srv.userAgentGet)
+	srv.Register(http.MethodGet, "/echo", srv.echoGet)
+	srv.Register(http.MethodGet, "/", srv.rootGet)
 
 	if err := srv.Start(ctx); err != nil {
 		log.Println("Failed to start server: ", err.Error())

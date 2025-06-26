@@ -114,7 +114,7 @@ func (s *server) handleConn(conn net.Conn) error {
 		return fmt.Errorf("failed to read request: %w", err)
 	}
 
-	log.Printf("Request: %+v", req)
+	log.Printf("Request: %s", req)
 
 	if err := s.Route(ctx, req, conn); err != nil {
 		return fmt.Errorf("failed to handle request: %w", err)
