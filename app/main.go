@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"time"
 )
 
 // Ensures gofmt doesn't remove the "net" and "os" imports above (feel free to remove this!)
@@ -22,9 +23,30 @@ func main() {
 		os.Exit(1)
 	}
 
-	_, err = l.Accept()
-	if err != nil {
-		fmt.Println("Error accepting connection: ", err.Error())
-		os.Exit(1)
+	for {
+		conn, err := l.Accept()
+		if err != nil {
+			fmt.Println("Error accepting connection: ", err.Error())
+			os.Exit(1)
+		}
+		if err := conn.SetDeadline(time.Now().Add(30 * time.Second)); err != nil {
+			fmt.Println("Error setting deadline: ", err.Error())
+			os.Exit(1)
+		}
+
+		var b []byte
+		if _, err = conn.Read(b); err != nil {
+			fmt.Println("Error reading from connection: ", err.Error())
+			os.Exit(1)
+		}
+		fmt.Println("Received data:", string(b))
+		if _, err = conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n")); err != nil {
+			fmt.Println("Error writing to connection: ", err.Error())
+			os.Exit(1)
+		}
+		if err := conn.Close(); err != nil {
+			fmt.Println("Error closing connection: ", err.Error())
+			os.Exit(1)
+		}
 	}
 }
