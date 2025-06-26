@@ -54,7 +54,7 @@ func (r *Request) String() string {
 	return s
 }
 
-func httpResponse(w io.Writer, code int, body string) error {
+func httpResponse(w io.Writer, code int, contentType, body string) error {
 	s := fmt.Sprintf(
 		"HTTP/1.1 %d %s\r\n",
 		code,
@@ -62,7 +62,7 @@ func httpResponse(w io.Writer, code int, body string) error {
 	)
 
 	if len(body) > 0 {
-		s += fmt.Sprintf("Content-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(body), body)
+		s += fmt.Sprintf("Content-Type: %s\r\nContent-Length: %d\r\n\r\n%s", contentType, len(body), body)
 	}
 
 	if _, err := w.Write([]byte(s)); err != nil {

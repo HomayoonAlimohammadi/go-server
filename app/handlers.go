@@ -2,36 +2,39 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"io"
+	"net/http"
+	"os"
+	"path"
 	"strings"
 )
 
-func handleRoot(_ context.Context, req *Request, w io.Writer) error {
-	if err := httpResponse(w, 200, ""); err != nil {
-		return fmt.Errorf("failed to write HTTP response: %w", err)
-	}
-	return nil
+type handleFunc func(context.Context, *Request, io.Writer) error
+
+func (s *server) handleRoot(_ context.Context, _ *Request, w io.Writer) error {
+	return httpResponse(w, http.StatusOK, "", "")
 }
 
-func handleNotFound(_ context.Context, req *Request, w io.Writer) error {
-	if err := httpResponse(w, 404, ""); err != nil {
-		return fmt.Errorf("failed to write HTTP response: %w", err)
-	}
-	return nil
+func (s *server) handleNotFound(_ context.Context, _ *Request, w io.Writer) error {
+	return httpResponse(w, http.StatusNotFound, "", "")
 }
 
-func handleEcho(_ context.Context, req *Request, w io.Writer) error {
+func (s *server) handleEcho(_ context.Context, req *Request, w io.Writer) error {
 	echo := strings.TrimPrefix(req.Target, "/echo/")
-	if err := httpResponse(w, 200, echo); err != nil {
-		return fmt.Errorf("failed to write HTTP response: %w", err)
-	}
-	return nil
+	return httpResponse(w, http.StatusOK, "text/plain", echo)
 }
 
-func handleUserAgent(_ context.Context, req *Request, w io.Writer) error {
-	if err := httpResponse(w, 200, req.Headers["User-Agent"]); err != nil {
-		return fmt.Errorf("failed to write HTTP response: %w", err)
+func (s *server) handleUserAgent(_ context.Context, req *Request, w io.Writer) error {
+	return httpResponse(w, http.StatusOK, "text/plain", req.Headers["User-Agent"])
+}
+
+func (s *server) handleFiles(_ context.Context, req *Request, w io.Writer) error {
+	fileName := strings.TrimPrefix(req.Target, "/files/")
+	b, err := os.ReadFile(path.Join(s.dir, fileName))
+	if os.IsNotExist(err) {
+		return httpResponse(w, http.StatusNotFound, "", "")
+	} else if err != nil {
+		return httpResponse(w, http.StatusInternalServerError, "text/plain", err.Error())
 	}
-	return nil
+	return httpResponse(w, http.StatusOK, "application/octet-stream", string(b))
 }
