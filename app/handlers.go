@@ -12,12 +12,12 @@ import (
 
 type handleFunc func(context.Context, *Request, io.Writer) error
 
-func (s *server) rootGet(_ context.Context, _ *Request, w io.Writer) error {
-	return httpResponse(w, http.StatusOK, nil, "")
+func (s *server) rootGet(_ context.Context, req *Request, w io.Writer) error {
+	return httpResponse(w, http.StatusOK, NewResponseHeaders(req.Headers), "")
 }
 
-func (s *server) handleNotFound(_ context.Context, _ *Request, w io.Writer) error {
-	return httpResponse(w, http.StatusNotFound, nil, "")
+func (s *server) handleNotFound(_ context.Context, req *Request, w io.Writer) error {
+	return httpResponse(w, http.StatusNotFound, NewResponseHeaders(req.Headers), "")
 }
 
 func (s *server) echoGet(_ context.Context, req *Request, w io.Writer) error {
@@ -50,7 +50,7 @@ func (s *server) filesGet(_ context.Context, req *Request, w io.Writer) error {
 	fileName := strings.TrimPrefix(req.Target, "/files/")
 	b, err := os.ReadFile(path.Join(s.dir, fileName))
 	if os.IsNotExist(err) {
-		return httpResponse(w, http.StatusNotFound, nil, "")
+		return httpResponse(w, http.StatusNotFound, NewResponseHeaders(req.Headers), "")
 	} else if err != nil {
 		headers := NewResponseHeaders(req.Headers)
 		headers.Set(HeaderContentType, ContentTypeTextPlain)
@@ -68,5 +68,5 @@ func (s *server) filesPost(_ context.Context, req *Request, w io.Writer) error {
 		headers.Set(HeaderContentType, ContentTypeTextPlain)
 		return httpResponse(w, http.StatusInternalServerError, headers, err.Error())
 	}
-	return httpResponse(w, http.StatusCreated, nil, "")
+	return httpResponse(w, http.StatusCreated, NewResponseHeaders(req.Headers), "")
 }
