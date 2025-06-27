@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -12,37 +13,60 @@ import (
 type handleFunc func(context.Context, *Request, io.Writer) error
 
 func (s *server) rootGet(_ context.Context, _ *Request, w io.Writer) error {
-	return httpResponse(w, http.StatusOK, "", "")
+	return httpResponse(w, http.StatusOK, nil, "")
 }
 
 func (s *server) handleNotFound(_ context.Context, _ *Request, w io.Writer) error {
-	return httpResponse(w, http.StatusNotFound, "", "")
+	return httpResponse(w, http.StatusNotFound, nil, "")
 }
 
 func (s *server) echoGet(_ context.Context, req *Request, w io.Writer) error {
 	echo := strings.TrimPrefix(req.Target, "/echo/")
-	return httpResponse(w, http.StatusOK, "text/plain", echo)
+	headers := make(Headers)
+	headers.Set(HeaderContentType, ContentTypeTextPlain)
+
+	encoder := encoderFromRequest(req)
+	if encoder != nil {
+		encoded, err := encoder.Encode([]byte(echo))
+		if err != nil {
+			err = fmt.Errorf("failed to encode response: %w", err)
+			return httpResponse(w, http.StatusInternalServerError, headers, err.Error())
+		}
+		headers.Set(HeaderContentEncoding, EncodingGzip)
+		echo = string(encoded)
+	}
+
+	return httpResponse(w, http.StatusOK, headers, echo)
 }
 
 func (s *server) userAgentGet(_ context.Context, req *Request, w io.Writer) error {
-	return httpResponse(w, http.StatusOK, "text/plain", req.Headers["User-Agent"])
+	userAgent, _ := req.Headers.Get(HeaderUserAgent)
+	headers := make(Headers)
+	headers.Set(HeaderContentType, ContentTypeTextPlain)
+	return httpResponse(w, http.StatusOK, headers, userAgent)
 }
 
 func (s *server) filesGet(_ context.Context, req *Request, w io.Writer) error {
 	fileName := strings.TrimPrefix(req.Target, "/files/")
 	b, err := os.ReadFile(path.Join(s.dir, fileName))
 	if os.IsNotExist(err) {
-		return httpResponse(w, http.StatusNotFound, "", "")
+		return httpResponse(w, http.StatusNotFound, nil, "")
 	} else if err != nil {
-		return httpResponse(w, http.StatusInternalServerError, "text/plain", err.Error())
+		headers := make(Headers)
+		headers.Set(HeaderContentType, ContentTypeTextPlain)
+		return httpResponse(w, http.StatusInternalServerError, headers, err.Error())
 	}
-	return httpResponse(w, http.StatusOK, "application/octet-stream", string(b))
+	headers := make(Headers)
+	headers.Set(HeaderContentType, ContentTypeApplicationOctetStream)
+	return httpResponse(w, http.StatusOK, headers, string(b))
 }
 
 func (s *server) filesPost(_ context.Context, req *Request, w io.Writer) error {
 	fileName := strings.TrimPrefix(req.Target, "/files/")
 	if err := os.WriteFile(path.Join(s.dir, fileName), req.Body, 0o644); err != nil {
-		return httpResponse(w, http.StatusInternalServerError, "text/plain", err.Error())
+		headers := make(Headers)
+		headers.Set(HeaderContentType, ContentTypeTextPlain)
+		return httpResponse(w, http.StatusInternalServerError, headers, err.Error())
 	}
-	return httpResponse(w, http.StatusCreated, "", "")
+	return httpResponse(w, http.StatusCreated, nil, "")
 }

@@ -7,12 +7,47 @@ import (
 	"strings"
 )
 
+const (
+	HeaderAcceptEncoding  = "Accept-Encoding"
+	HeaderContentLength   = "Content-Length"
+	HeaderContentType     = "Content-Type"
+	HeaderContentEncoding = "Content-Encoding"
+	HeaderUserAgent       = "User-Agent"
+
+	ContentTypeTextPlain              = "text/plain"
+	ContentTypeApplicationOctetStream = "application/octet-stream"
+)
+
 type Request struct {
 	Method  string
 	Target  string
 	Version string
-	Headers map[string]string
+	Headers Headers
 	Body    []byte
+}
+
+type Headers map[string]string
+
+// Get retrieves the value of the given key if found.
+// The given key is case-insensitive.
+func (h Headers) Get(k string) (string, bool) {
+	for hk, v := range h {
+		if strings.EqualFold(hk, k) {
+			return v, true
+		}
+	}
+	return "", false
+}
+
+func (h Headers) Set(k, v string) {
+	k = strings.TrimSpace(k)
+	for hk, _ := range h {
+		if strings.EqualFold(hk, k) {
+			h[hk] = v
+			return
+		}
+	}
+	h[http.CanonicalHeaderKey(k)] = v
 }
 
 func (r *Request) From(b []byte) error {
@@ -36,7 +71,7 @@ func (r *Request) From(b []byte) error {
 		}
 		kv := strings.SplitN(l, ":", 2)
 		k, v := kv[0], kv[1]
-		r.Headers[strings.TrimSpace(k)] = strings.TrimSpace(v)
+		r.Headers.Set(strings.TrimSpace(k), strings.TrimSpace(v))
 	}
 
 	// Body
@@ -54,15 +89,19 @@ func (r *Request) String() string {
 	return s
 }
 
-func httpResponse(w io.Writer, code int, contentType, body string) error {
+func httpResponse(w io.Writer, code int, headers Headers, body string) error {
 	s := fmt.Sprintf(
 		"HTTP/1.1 %d %s\r\n",
 		code,
 		http.StatusText(code),
 	)
 
+	for h, v := range headers {
+		s += fmt.Sprintf("%s: %s\r\n", h, v)
+	}
+
 	if len(body) > 0 {
-		s += fmt.Sprintf("Content-Type: %s\r\nContent-Length: %d\r\n\r\n%s", contentType, len(body), body)
+		s += fmt.Sprintf("%s: %d\r\n\r\n%s", HeaderContentLength, len(body), body)
 	}
 
 	if _, err := w.Write([]byte(s)); err != nil {
