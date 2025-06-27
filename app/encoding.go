@@ -1,5 +1,7 @@
 package main
 
+import "strings"
+
 const (
 	EncodingGzip = "gzip"
 )
@@ -14,12 +16,15 @@ func encoderFromRequest(r *Request) Encoder {
 	if !ok {
 		return nil
 	}
-	switch e {
-	case EncodingGzip:
-		return NewGzipEncoder()
-	default:
-		return nil
+	encodings := strings.Split(e, ",")
+	for _, e := range encodings {
+		e = strings.TrimSpace(e)
+		switch e {
+		case EncodingGzip:
+			return NewGzipEncoder()
+		}
 	}
+	return nil
 }
 
 type gzipEncoder struct{}
