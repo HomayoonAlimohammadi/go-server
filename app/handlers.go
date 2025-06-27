@@ -22,7 +22,7 @@ func (s *server) handleNotFound(_ context.Context, _ *Request, w io.Writer) erro
 
 func (s *server) echoGet(_ context.Context, req *Request, w io.Writer) error {
 	echo := strings.TrimPrefix(req.Target, "/echo/")
-	headers := make(Headers)
+	headers := NewResponseHeaders(req.Headers)
 	headers.Set(HeaderContentType, ContentTypeTextPlain)
 
 	encoder := encoderFromRequest(req)
@@ -41,7 +41,7 @@ func (s *server) echoGet(_ context.Context, req *Request, w io.Writer) error {
 
 func (s *server) userAgentGet(_ context.Context, req *Request, w io.Writer) error {
 	userAgent, _ := req.Headers.Get(HeaderUserAgent)
-	headers := make(Headers)
+	headers := NewResponseHeaders(req.Headers)
 	headers.Set(HeaderContentType, ContentTypeTextPlain)
 	return httpResponse(w, http.StatusOK, headers, userAgent)
 }
@@ -52,11 +52,11 @@ func (s *server) filesGet(_ context.Context, req *Request, w io.Writer) error {
 	if os.IsNotExist(err) {
 		return httpResponse(w, http.StatusNotFound, nil, "")
 	} else if err != nil {
-		headers := make(Headers)
+		headers := NewResponseHeaders(req.Headers)
 		headers.Set(HeaderContentType, ContentTypeTextPlain)
 		return httpResponse(w, http.StatusInternalServerError, headers, err.Error())
 	}
-	headers := make(Headers)
+	headers := NewResponseHeaders(req.Headers)
 	headers.Set(HeaderContentType, ContentTypeApplicationOctetStream)
 	return httpResponse(w, http.StatusOK, headers, string(b))
 }
@@ -64,7 +64,7 @@ func (s *server) filesGet(_ context.Context, req *Request, w io.Writer) error {
 func (s *server) filesPost(_ context.Context, req *Request, w io.Writer) error {
 	fileName := strings.TrimPrefix(req.Target, "/files/")
 	if err := os.WriteFile(path.Join(s.dir, fileName), req.Body, 0o644); err != nil {
-		headers := make(Headers)
+		headers := NewResponseHeaders(req.Headers)
 		headers.Set(HeaderContentType, ContentTypeTextPlain)
 		return httpResponse(w, http.StatusInternalServerError, headers, err.Error())
 	}

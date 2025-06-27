@@ -13,9 +13,13 @@ const (
 	HeaderContentType     = "Content-Type"
 	HeaderContentEncoding = "Content-Encoding"
 	HeaderUserAgent       = "User-Agent"
+	HeaderConnection      = "Connection"
 
 	ContentTypeTextPlain              = "text/plain"
 	ContentTypeApplicationOctetStream = "application/octet-stream"
+
+	ConnectionKeepAlive = "keep-alive"
+	ConnectionClose     = "close"
 )
 
 type Request struct {
@@ -27,6 +31,20 @@ type Request struct {
 }
 
 type Headers map[string]string
+
+func NewResponseHeaders(reqHeaders Headers) Headers {
+	copyHeaders := []string{
+		HeaderConnection,
+	}
+
+	h := make(Headers)
+	for _, cp := range copyHeaders {
+		v, _ := reqHeaders.Get(cp)
+		h.Set(cp, v)
+	}
+
+	return h
+}
 
 // Get retrieves the value of the given key if found.
 // The given key is case-insensitive.
@@ -40,8 +58,15 @@ func (h Headers) Get(k string) (string, bool) {
 }
 
 func (h Headers) Set(k, v string) {
+	if k == "" {
+		return
+	} else if v == "" {
+		delete(h, k)
+		return
+	}
+
 	k = strings.TrimSpace(k)
-	for hk, _ := range h {
+	for hk := range h {
 		if strings.EqualFold(hk, k) {
 			h[hk] = v
 			return
@@ -95,6 +120,17 @@ func httpResponse(w io.Writer, code int, headers Headers, body any) error {
 		code,
 		http.StatusText(code),
 	)
+
+	// Ensure we have a headers map
+	if headers == nil {
+		headers = make(Headers)
+	}
+
+	// Set Connection header to keep-alive by default if not already set
+	// This allows clients to see that the server supports persistent connections
+	if _, hasConnection := headers.Get(HeaderConnection); !hasConnection {
+		headers.Set(HeaderConnection, ConnectionKeepAlive)
+	}
 
 	for h, v := range headers {
 		s += fmt.Sprintf("%s: %s\r\n", h, v)

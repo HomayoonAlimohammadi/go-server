@@ -94,30 +94,60 @@ func (s *server) Start(ctx context.Context) error {
 func (s *server) handleConn(conn net.Conn) error {
 	defer conn.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	d, _ := ctx.Deadline()
+	log.Println("Handling new connection")
 
-	if err := conn.SetDeadline(d); err != nil {
-		log.Println("Error setting deadline: ", err.Error())
-	}
+	// Handle multiple requests on the same connection
+	for {
+		// Set a timeout for each request
+		if err := conn.SetDeadline(time.Now().Add(30 * time.Second)); err != nil {
+			log.Println("Error setting read deadline: ", err.Error())
+			break
+		}
 
-	buf := make([]byte, 1024)
-	n, err := conn.Read(buf)
-	if err != nil {
-		return fmt.Errorf("failed to read conn: %w", err)
-	}
+		buf := make([]byte, 4096)
+		n, err := conn.Read(buf)
+		if err != nil {
+			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+				log.Println("Connection timeout, closing")
+				break
+			}
+			return fmt.Errorf("failed to read conn: %w", err)
+		}
 
-	b := buf[:n]
-	req := &Request{}
-	if err := req.From(b); err != nil {
-		return fmt.Errorf("failed to read request: %w", err)
-	}
+		b := buf[:n]
+		req := &Request{}
+		if err := req.From(b); err != nil {
+			return fmt.Errorf("failed to read request: %w", err)
+		}
 
-	log.Printf("Request: %s", req)
+		log.Printf("Request: %s", req)
 
-	if err := s.Route(ctx, req, conn); err != nil {
-		return fmt.Errorf("failed to handle request: %w", err)
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+
+		if err := s.Route(ctx, req, conn); err != nil {
+			cancel()
+			return fmt.Errorf("failed to handle request: %w", err)
+		}
+		cancel()
+
+		// Check if we should keep the connection alive
+		connectionHeader, _ := req.Headers.Get(HeaderConnection)
+		var keepAlive bool
+
+		if req.Version == "HTTP/1.1" {
+			// HTTP/1.1 defaults to keep-alive unless explicitly closed
+			keepAlive = !strings.EqualFold(connectionHeader, ConnectionClose)
+		} else {
+			// HTTP/1.0 defaults to close unless explicitly keep-alive
+			keepAlive = strings.EqualFold(connectionHeader, ConnectionKeepAlive)
+		}
+
+		if !keepAlive {
+			log.Println("Connection marked for close")
+			break
+		}
+
+		log.Println("Keeping connection alive for next request")
 	}
 
 	return nil
