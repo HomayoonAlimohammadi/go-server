@@ -80,7 +80,14 @@ func (r *Request) From(b []byte) error {
 	parts := strings.Split(s, "\r\n")
 
 	// Meta
+	if len(parts) == 0 || parts[0] == "" {
+		return fmt.Errorf("invalid request: missing request line")
+	}
+
 	metaSegs := strings.Split(parts[0], " ")
+	if len(metaSegs) < 3 {
+		return fmt.Errorf("invalid request line: expected 3 parts, got %d", len(metaSegs))
+	}
 
 	r.Method = strings.TrimSpace(metaSegs[0])
 	r.Target = strings.TrimSpace(metaSegs[1])
@@ -95,6 +102,10 @@ func (r *Request) From(b []byte) error {
 			continue
 		}
 		kv := strings.SplitN(l, ":", 2)
+		if len(kv) < 2 {
+			// Skip malformed header lines
+			continue
+		}
 		k, v := kv[0], kv[1]
 		r.Headers.Set(strings.TrimSpace(k), strings.TrimSpace(v))
 	}

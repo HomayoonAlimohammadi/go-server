@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -73,13 +74,13 @@ func (s *server) Start(ctx context.Context) error {
 				// Timeout occurred, continue to check context
 				continue
 			}
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			default:
-				log.Println("Error accepting connection: ", err.Error())
-				continue
+
+			if errors.Is(err, net.ErrClosed) {
+				return fmt.Errorf("failed to accept connection: %w", err)
 			}
+
+			log.Println("Error accepting connection: ", err.Error())
+			continue
 		}
 
 		go func(conn net.Conn) {
@@ -88,7 +89,6 @@ func (s *server) Start(ctx context.Context) error {
 			}
 		}(conn)
 	}
-
 }
 
 func (s *server) handleConn(conn net.Conn) error {
