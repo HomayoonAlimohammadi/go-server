@@ -33,7 +33,7 @@ func (s *server) echoGet(_ context.Context, req *Request, w io.Writer) error {
 			return httpResponse(w, http.StatusInternalServerError, headers, err.Error())
 		}
 		headers.Set(HeaderContentEncoding, EncodingGzip)
-		echo = string(encoded)
+		return httpResponse(w, http.StatusOK, headers, encoded)
 	}
 
 	return httpResponse(w, http.StatusOK, headers, echo)

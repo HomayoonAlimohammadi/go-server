@@ -89,7 +89,7 @@ func (r *Request) String() string {
 	return s
 }
 
-func httpResponse(w io.Writer, code int, headers Headers, body string) error {
+func httpResponse(w io.Writer, code int, headers Headers, body any) error {
 	s := fmt.Sprintf(
 		"HTTP/1.1 %d %s\r\n",
 		code,
@@ -100,8 +100,9 @@ func httpResponse(w io.Writer, code int, headers Headers, body string) error {
 		s += fmt.Sprintf("%s: %s\r\n", h, v)
 	}
 
-	if len(body) > 0 {
-		s += fmt.Sprintf("%s: %d\r\n\r\n%s", HeaderContentLength, len(body), body)
+	bodyLength := len(fmt.Sprintf("%s", body))
+	if bodyLength > 0 {
+		s += fmt.Sprintf("%s: %d\r\n\r\n%s", HeaderContentLength, bodyLength, body)
 	}
 
 	if _, err := w.Write([]byte(s)); err != nil {
